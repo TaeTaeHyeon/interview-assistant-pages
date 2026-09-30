@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>시장 분석 & 레퍼런스 — Interview Fact-Check Assistant</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    ::-webkit-scrollbar{width:6px;height:6px}
+    ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+    .tab-btn{transition:all .18s;cursor:pointer;white-space:nowrap}
+    .tab-btn.active{background:var(--primary);color:var(--primary-foreground)}
+    .tab-pane{display:none}
+    .tab-pane.active{display:block}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+    .fade-up{animation:fadeUp .3s ease both}
+    @keyframes growBar{from{width:0}to{width:var(--w)}}
+    .bar-anim{animation:growBar .9s cubic-bezier(.4,0,.2,1) both}
+    .comp-card{transition:transform .18s,box-shadow .18s;cursor:pointer}
+    .comp-card:hover{transform:translateY(-3px)}
+    .comp-card.selected{outline:2px solid var(--primary);outline-offset:2px}
+    .star{color:#f59e0b}
+    .badge{display:inline-block;font-size:9px;padding:2px 7px;border-radius:999px;font-weight:600;line-height:1.6}
+    .badge-red{background:rgba(239,68,68,.12);color:#ef4444}
+    .badge-green{background:rgba(34,197,94,.12);color:#22c55e}
+    .badge-blue{background:rgba(59,130,246,.12);color:#3b82f6}
+    .badge-yellow{background:rgba(245,158,11,.12);color:#f59e0b}
+    .badge-purple{background:rgba(168,85,247,.12);color:#a855f7}
+    /* Positioning chart */
+    #pos-chart{position:relative;width:100%;aspect-ratio:1.6;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+    .pos-dot{position:absolute;transform:translate(-50%,-50%);cursor:pointer;transition:transform .18s}
+    .pos-dot:hover{transform:translate(-50%,-50%) scale(1.25)}
+    .pos-dot .dot-inner{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+    .pos-label{position:absolute;font-size:9px;font-weight:600;white-space:nowrap;transform:translateX(-50%);margin-top:2px;color:var(--foreground);text-align:center}
+    /* Matrix */
+    .matrix-cell{text-align:center;font-size:13px}
+    .check{color:#22c55e}
+    .cross{color:#ef4444}
+    .partial{color:#f59e0b}
+  </style>
+</head>
+<body class="bg-[var(--background)] text-[var(--foreground)] antialiased min-h-screen">
+
+<!-- ═══════════════ HERO ═══════════════ -->
+<div class="px-6 pt-6 pb-4 border-b border-[var(--border)]" style="background:var(--sidebar)">
+  <div class="max-w-6xl mx-auto">
+    <div class="flex items-start justify-between flex-wrap gap-3">
+      <div>
+        <div class="flex items-center gap-2 mb-1">
+          <span class="text-2xl">🔍</span>
+          <h1 class="text-xl font-black text-[var(--foreground)]">시장 확인 & 레퍼런스 분석</h1>
+          <span class="badge badge-blue">2026.09 기준</span>
+        </div>
+        <p class="text-sm text-[var(--muted-foreground)]">실시간 팩트체킹 인터뷰 어시스턴트 — 경쟁사 조사 및 시장 검증 리포트</p>
+      </div>
+      <div class="flex gap-3 flex-wrap">
+        <div class="rounded-xl border border-[var(--border)] px-4 py-2 text-center" style="background:var(--card)">
+          <div class="text-lg font-black" style="color:var(--primary)">10</div>
+          <div class="text-[10px] text-[var(--muted-foreground)]">경쟁사 분석</div>
+        </div>
+        <div class="rounded-xl border border-[var(--border)] px-4 py-2 text-center" style="background:var(--card)">
+          <div class="text-lg font-black text-green-500">$6.85B</div>
+          <div class="text-[10px] text-[var(--muted-foreground)]">2033 TAM 목표</div>
+        </div>
+        <div class="rounded-xl border border-[var(--border)] px-4 py-2 text-center" style="background:var(--card)">
+          <div class="text-lg font-black text-orange-400">18.9%</div>
+          <div class="text-[10px] text-[var(--muted-foreground)]">인터뷰 인텔리전스 CAGR</div>
+        </div>
+        <div class="rounded-xl border border-[var(--border)] px-4 py-2 text-center" style="background:var(--card)">
+          <div class="text-lg font-black text-purple-400">0개</div>
+          <div class="text-[10px] text-[var(--muted-foreground)]">직접 경쟁사</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ TABS ═══════════════ -->
+<div class="sticky top-0 z-10 border-b border-[var(--border)] px-6 overflow-x-auto" style="background:var(--background)">
+  <div class="max-w-6xl mx-auto flex gap-1 py-2">
+    <button class="tab-btn active text-xs px-3 py-1.5 rounded-lg font-semibold" onclick="showTab('market')">📊 시장 규모</button>
+    <button class="tab-btn text-xs px-3 py-1.5 rounded-lg font-semibold text-[var(--muted-foreground)]" onclick="showTab('competitors')">🏢 경쟁사 분석</button>
+    <button class="tab-btn text-xs px-3 py-1.5 rounded-lg font-semibold text-[var(--muted-foreground)]" onclick="showTab('matrix')">📋 기능 비교 매트릭스</button>
+    <button class="tab-btn text-xs px-3 py-1.5 rounded-lg font-semibold text-[var(--muted-foreground)]" onclick="showTab('positioning')">🎯 포지셔닝 맵</button>
+    <button class="tab-btn text-xs px-3 py-1.5 rounded-lg font-semibold text-[var(--muted-foreground)]" onclick="showTab('gap')">⚡ 시장 공백 & 기회</button>
+  </div>
+</div>
+
+<div class="px-6 py-6 max-w-6xl mx-auto">
+
+<!-- ═══════════════ TAB 1: MARKET ═══════════════ -->
+<div id="tab-market" class="tab-pane active fade-up">
+  <div class="grid grid-cols-1 gap-6">
+
+    <!-- Market size bars -->
+    <div class="rounded-2xl border border-[var(--border)] p-5" style="background:var(--card)">
+      <h2 class="text-base font-bold mb-1">글로벌 시장 규모 (2024 → 2030+)</h2>
+      <p class="text-xs text-[var(--muted-foreground)] mb-5">Grand View Research / MarketsandMarkets / Market.us 기반 추정치</p>
+
+      <div class="flex flex-col gap-5" id="market-bars"></div>
+    </div>
+
+    <!-- Regional & trend -->
+    <div class="grid grid-cols-3 gap-4">
+      <div class="col-span-2 rounded-2xl border border-[var(--border)] p-5" style="background:var(--card)">
+        <h3 class="text-sm font-bold mb-3">📈 핵심 트렌드</h3>
+        <div class="flex flex-col gap-2">
+          <div class="flex items-start gap-3 p-3 rounded-xl border border-[var(--border)]" style="background:var(--background)">
+            <span class="text-lg mt-0.5">🤖</span>
+            <div><div class="text-xs font-semibold">Agent Assist가 최고 근접 가치 드라이버</div><div class="text-[11px] text-[var(--muted-foreground)] mt-0.5">Gartner: 실시간 전사+자동 메모+추천 답변이 기업 AI 도입의 첫 번째 ROI 포인트. 2026년까지 콘택트센터 노동비용 $800억 절감 예측.</div></div>
+          </div>
+          <div class="flex items-start gap-3 p-3 rounded-xl border border-[var(--border)]" style="background:var(--background)">
+            <span class="text-lg mt-0.5">☁️</span>
+            <div><div class="text-xs font-semibold">클라우드 기반이 90%+ 점유</div><div class="text-[11px] text-[var(--muted-foreground)] mt-0.5">온프레미스 니즈는 빠르게 감소. SaaS WebSocket 스트리밍 아키텍처가 표준으로 자리잡는 중.</div></div>
+          </div>
+          <div class="flex items-start gap-3 p-3 rounded-xl border border-[var(--border)]" style="background:var(--background)">
+            <span class="text-lg mt-0.5">🛡</span>
+            <div><div class="text-xs font-semibold">프라이버시·규제 리스크 부상</div><div class="text-[11px] text-[var(--muted-foreground)] mt-0.5">Otter.ai: 2026년 ECPA+CIPA 집단소송 생존 판결. HireVue: AI 편향·ADA 위반 주장. 동의 플래그·PII 마스킹이 시장 진입 필수 요건으로 격상.</div></div>
+          </div>
+          <div class="flex items-start gap-3 p-3 rounded-xl border border-[var(--border)]" style="background:var(--background)">
+            <span class="text-lg mt-0.5">🌏</span>
+            <div><div class="text-xs font-semibold">아시아-태평양이 최고 성장 지역</div><div class="text-[11px] text-[var(--muted-foreground)] mt-0.5">북미가 40%+ 점유율이지만 APAC이 가장 빠른 성장세. 한국 B2B HR SaaS 시장은 글로벌 대비 도입 3~5년 지연 → 선점 기회.</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="rounded-2xl border border-[var(--border)] p-5 flex flex-col gap-3" style="background:var(--card)">
+        <h3 class="text-sm font-bold mb-1">🏆 주요 벤처 투자 현황</h3>
+        <div id="funding-list" class="flex flex-col gap-2"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ TAB 2: COMPETITORS ═══════════════ -->
+<div id="tab-competitors" class="tab-pane fade-up">
+  <div class="grid grid-cols-5 gap-4 mb-5" id="comp-grid"></div>
+  <div id="comp-detail" class="rounded-2xl border border-[var(--border)] p-6" style="background:var(--card)">
+    <p class="text-sm text-[var(--muted-foreground)] text-center py-8">👆 위 카드를 클릭하면 상세 정보를 확인할 수 있습니다</p>
+  </div>
+</div>
+
+<!-- ═══════════════ TAB 3: MATRIX ═══════════════ -->
+<div id="tab-matrix" class="tab-pane fade-up">
+  <div class="rounded-2xl border border-[var(--border)] overflow-hidden" style="background:var(--card)">
+    <div class="p-4 border-b border-[var(--border)]">
+      <h2 class="text-base font-bold">기능 비교 매트릭스</h2>
+      <p class="text-xs text-[var(--muted-foreground)] mt-0.5">✅ 지원 &nbsp;|&nbsp; ⚠️ 부분/제한적 &nbsp;|&nbsp; ❌ 미지원 &nbsp;|&nbsp; 🔵 우리 제품 (목표)</p>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs" id="feature-matrix"></table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ TAB 4: POSITIONING ═══════════════ -->
+<div id="tab-positioning" class="tab-pane fade-up">
+  <div class="grid grid-cols-2 gap-6">
+    <div class="rounded-2xl border border-[var(--border)] p-5" style="background:var(--card)">
+      <h2 class="text-sm font-bold mb-1">경쟁사 포지셔닝 맵</h2>
+      <p class="text-[10px] text-[var(--muted-foreground)] mb-4">X축: 실시간성 (낮음 → 높음) &nbsp;|&nbsp; Y축: 팩트체크/검증 깊이 (낮음 → 높음)</p>
+      <div id="pos-chart">
+        <!-- axis labels -->
+        <div style="position:absolute;top:50%;left:4px;transform:translateY(-50%) rotate(-90deg);font-size:9px;color:var(--muted-foreground);white-space:nowrap">팩트체크 깊이 ↑</div>
+        <div style="position:absolute;bottom:6px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--muted-foreground)">실시간성 →</div>
+        <!-- quadrant lines -->
+        <div style="position:absolute;top:50%;left:0;right:0;height:1px;background:var(--border);opacity:.5"></div>
+        <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--border);opacity:.5"></div>
+        <!-- quadrant labels -->
+        <div style="position:absolute;top:8px;left:8px;font-size:8px;color:var(--muted-foreground);opacity:.7">② 검증 깊지만 후처리</div>
+        <div style="position:absolute;top:8px;right:8px;font-size:8px;color:var(--muted-foreground);opacity:.7;text-align:right">① 실시간 + 검증 (공백)</div>
+        <div style="position:absolute;bottom:16px;left:8px;font-size:8px;color:var(--muted-foreground);opacity:.7">③ 단순 전사/기록</div>
+        <div style="position:absolute;bottom:16px;right:8px;font-size:8px;color:var(--muted-foreground);opacity:.7;text-align:right">④ 실시간이지만 검증 없음</div>
+        <div id="pos-dots"></div>
+      </div>
+    </div>
+    <div class="flex flex-col gap-4">
+      <div class="rounded-2xl border border-[var(--border)] p-5 flex-1" style="background:var(--card)">
+        <h3 class="text-sm font-bold mb-3">🎯 포지셔닝 전략</h3>
+        <div class="flex flex-col gap-3">
+          <div class="p-3 rounded-xl" style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2)">
+            <div class="text-xs font-bold" style="color:#818cf8">우리의 블루오션 포지션</div>
+            <div class="text-[11px] text-[var(--muted-foreground)] mt-1">실시간성(X축 우측) + 팩트체크 깊이(Y축 상단)를 동시에 달성하는 1사분면 — 현재 <strong class="text-[var(--foreground)]">상업적 경쟁사 0개</strong></div>
+          </div>
+          <div class="p-3 rounded-xl border border-[var(--border)]" style="background:var(--background)">
+            <div class="text-xs font-semibold">vs. Otter.ai / Fireflies / Fathom</div>
+            <div class="text-[11px] text-[var(--muted-foreground)] mt-1">범용 전사 툴. 팩트체크 없음. 채용 특화 없음. → 우리는 HR 버티컬 특화 + 검증 레이어 추가</div>
+          </div>
+          <div class="p-3 rounded-xl border border-[var(--border)]" style="background:var(--background)">
+            <div class="text-xs font-semibold">vs. Gong / Chorus</div>
+            <div class="text-[11px] text-[var(--muted-foreground)] mt-1">세일즈 전용, 후처리 분석, 고가격 Enterprise. → 우리는 채용 면접 실시간 + 중저가 SaaS</div>
+          </div>
+          <div class="p-3 rounded-xl border border-[var(--border)]" style="background:var(--background)">
+            <div class="text-xs font-semibold">vs. HireVue / Metaview</div>
+            <div class="text-[11px] text-[var(--muted-foreground)] mt-1">지원자 평가 AI. 팩트체크·이력서 대조 없음. 면접관 보조 없음. → 우리는 면접관(Interviewer) 측 지원 특화</div>
+          </div>
+          <div class="p-3 rounded-xl border border-[var(--border)]" style="background:var(--background)">
+            <div class="text-xs font-semibold">vs. ClaimBuster</div>
+            <div class="text-[11px] text-[var(--muted-foreground)] mt-1">학술용, 2020년 이후 비활성. 상업화·실시간화 없음. → 우리가 상업화 버전</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ TAB 5: GAP ═══════════════ -->
+<div id="tab-gap" class="tab-pane fade-up">
+  <div class="grid grid-cols-2 gap-6">
+    <!-- Gap analysis -->
+    <div class="flex flex-col gap-4">
+      <div class="rounded-2xl border border-[var(--border)] p-5" style="background:var(--card)">
+        <h2 class="text-sm font-bold mb-3">⚡ 시장 공백 분석</h2>
+        <div class="flex flex-col gap-2" id="gap-list"></div>
+      </div>
+    </div>
+
+    <!-- Opportunity & Risks -->
+    <div class="flex flex-col gap-4">
+      <div class="rounded-2xl border border-[var(--border)] p-5" style="background:var(--card)">
+        <h3 class="text-sm font-bold mb-3">🟢 핵심 차별화 포인트 (우리만의 무기)</h3>
+        <div class="flex flex-col gap-2" id="diff-list"></div>
+      </div>
+      <div class="rounded-2xl border border-[var(--border)] p-5" style="background:var(--card)">
+        <h3 class="text-sm font-bold mb-3">🔴 주요 리스크 & 대응 전략</h3>
+        <div class="flex flex-col gap-2" id="risk-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Strategic conclusion -->
+  <div class="mt-6 rounded-2xl border-2 p-5" style="border-color:var(--primary);background:rgba(99,102,241,.05)">
+    <div class="flex items-start gap-3">
+      <span class="text-2xl">🏁</span>
+      <div>
+        <div class="text-sm font-bold mb-2" style="color:var(--primary)">전략적 결론</div>
+        <div class="text-[12px] text-[var(--foreground)] leading-relaxed">
+          조사된 10개 경쟁사 중 <strong>실시간 팩트체크 + 채용 면접 특화</strong>를 동시에 수행하는 상업적 제품은 <strong>존재하지 않습니다.</strong>
+          가장 근접한 ClaimBuster는 학술용·비활성 상태이며, Metaview는 팩트체크 없는 전사 도구입니다.
+          <br/><br/>
+          인터뷰 인텔리전스 시장의 18.9% CAGR과 APAC 고성장 트렌드를 감안할 때, 이 제품은 <strong>명확한 블루오션</strong>에 해당합니다.
+          B2B SaaS 구독 모델 + 한국 IT 기업 채용팀을 초기 타깃으로, 이후 글로벌 확장 경로를 설계하는 것이 최적 전략입니다.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /max-w -->
+
+<script>
+// ─── DATA ───
+const marketData = [
+  { label:'AI 채용/인터뷰 소프트웨어', val2024:1.8, val2030:5.4, cagr:'11.6%', color:'#3b82f6' },
+  { label:'인터뷰 인텔리전스 플랫폼', val2024:1.42, val2030:6.85, cagr:'18.9%', color:'#8b5cf6' },
+  { label:'AI in HR (전체)', val2024:3.2, val2030:15.2, cagr:'24.7%', color:'#f59e0b' },
+  { label:'대화형 AI (기업 전체)', val2024:11.58, val2030:41.39, cagr:'23.7%', color:'#22c55e' },
+];
+
+const funding = [
+  { name:'Gong', amount:'$584M', stage:'Series E', badge:'badge-purple' },
+  { name:'Otter.ai', amount:'$73M', stage:'Series B+', badge:'badge-blue' },
+  { name:'HireVue', amount:'$95M', stage:'Growth', badge:'badge-yellow' },
+  { name:'Chorus (ZoomInfo 인수)', amount:'$575M 인수', stage:'M&A', badge:'badge-red' },
+  { name:'Fireflies', amount:'$19M', stage:'Series A', badge:'badge-green' },
+  { name:'Metaview', amount:'$50M', stage:'Series B', badge:'badge-blue' },
+  { name:'Fathom (Superhuman 인수)', amount:'$30M', stage:'M&A', badge:'badge-red' },
+  { name:'Grain', amount:'$16M', stage:'Series A', badge:'badge-yellow' },
+  { name:'Avoma', amount:'$15M', stage:'Series A', badge:'badge-green' },
+];
+
+const competitors = [
+  {
+    id:'otter', emoji:'🎙', name:'Otter.ai', tag:'범용 전사', badge:'badge-yellow',
+    target:'개인·기업 수평', pricing:'$0–$30/월', founded:'2016', funding:'$73M · ARR $100M+',
+    features:['실시간 STT','화자 분리','AI 회의 요약','Salesforce 연동','기업용 HIPAA'],
+    weaknesses:['팩트체크 없음','2026 집단소송(ECPA/CIPA)','악센트 정확도 저하','채용 특화 없음'],
+    tech:'자체 ASR + 자체 LLM',
+    score:{ realtime:4, factcheck:0, hiring:1, privacy:2 },
+  },
+  {
+    id:'fireflies', emoji:'🔥', name:'Fireflies.ai', tag:'AI 노트 + 검색', badge:'badge-green',
+    target:'세일즈·리크루팅·PM', pricing:'$0–$39/월', founded:'2016', funding:'$19M · 유니콘($1B)',
+    features:['100개 언어 STT','Perplexity 실시간 웹검색','감성 분석','60+ 통합','AI Skills 자동화'],
+    weaknesses:['실시간 검색 신뢰성 미검증','채용 특화 약함','Gong 대비 세일즈 분석 얕음'],
+    tech:'멀티 LLM + Perplexity API',
+    score:{ realtime:3, factcheck:1, hiring:2, privacy:3 },
+  },
+  {
+    id:'gong', emoji:'📈', name:'Gong.io', tag:'세일즈 인텔리전스', badge:'badge-purple',
+    target:'Enterprise 세일즈팀', pricing:'$1,300+/user/year', founded:'2015', funding:'$584M · $7.25B 밸류',
+    features:['통화 분석 AI','딜 위험 스코어링','세일즈 코칭 대시보드','CRM 연동','파이프라인 예측'],
+    weaknesses:['실시간 인콜 코칭 없음(후처리)','매우 비쌈','HR 채용 대상 아님','GDPR 취약'],
+    tech:'자체 LLM (세일즈 데이터 학습)',
+    score:{ realtime:2, factcheck:2, hiring:0, privacy:2 },
+  },
+  {
+    id:'chorus', emoji:'🎯', name:'Chorus.ai', tag:'대화 인텔리전스', badge:'badge-blue',
+    target:'세일즈팀 (ZoomInfo 유저)', pricing:'Custom ($15K+/년)', founded:'2015', funding:'ZoomInfo $575M 인수',
+    features:['통화 전사·분석','ZoomInfo 데이터 연동','경쟁사 언급 감지','코칭 플레이리스트'],
+    weaknesses:['실시간 인콜 코칭 없음','ZoomInfo 없이는 가치 반감','예측 분석 약함','HR 대상 아님'],
+    tech:'표준 ASR + NLP, ZoomInfo 생태계',
+    score:{ realtime:1, factcheck:1, hiring:0, privacy:2 },
+  },
+  {
+    id:'hirevue', emoji:'🎬', name:'HireVue', tag:'AI 비디오 면접', badge:'badge-red',
+    target:'Fortune 500 HR팀', pricing:'$35K–$75K+/년', founded:'2004', funding:'$95M',
+    features:['단방향 비디오 면접','AI 평가 스코어링','인지 능력 게임 평가','ATS 깊은 연동','구조화 면접 안내'],
+    weaknesses:['팩트체크 없음','지원자 반발 심각','ADA 차별 소송','SMB 불가','이력서 대조 없음'],
+    tech:'자체 비디오 AI + NLP 채점',
+    score:{ realtime:2, factcheck:0, hiring:4, privacy:1 },
+  },
+  {
+    id:'metaview', emoji:'🧠', name:'Metaview', tag:'채용 AI 노트', badge:'badge-blue',
+    target:'테크 기업 리크루팅팀', pricing:'$0–$26+/월', founded:'2018', funding:'$50M (GV 리드)',
+    features:['채용 특화 전사','역량 루브릭 자동 매핑','ATS 스코어카드 자동 작성','소싱 에이전트','화면 인식 AI'],
+    weaknesses:['팩트체크 없음','웹 검색 없음','이력서 실시간 대조 없음','에이전트 기능 초기 단계'],
+    tech:'채용 도메인 파인튜닝 LLM + ATS 커넥터',
+    score:{ realtime:3, factcheck:0, hiring:5, privacy:3 },
+  },
+  {
+    id:'grain', emoji:'🌾', name:'Grain', tag:'하이라이트 + CI', badge:'badge-yellow',
+    target:'세일즈·CS·리서치팀', pricing:'$0–$29/월', founded:'2018', funding:'$16M (Tiger Global)',
+    features:['회의 하이라이트 클립','주제별 탐색','CRM 동기화','Ask Grain (회의 히스토리 Q&A)','MCP 커넥터'],
+    weaknesses:['팩트체크 없음','규모 확장 시 라이브러리 관리 어려움','모바일 앱 없음'],
+    tech:'표준 ASR + LLM 요약 + MCP 통합',
+    score:{ realtime:3, factcheck:0, hiring:1, privacy:3 },
+  },
+  {
+    id:'claimbuster', emoji:'🔍', name:'ClaimBuster', tag:'자동 팩트체크', badge:'badge-red',
+    target:'저널리스트·연구자', pricing:'무료 (학술)', founded:'2014', funding:'NSF·Knight 재단 (비영리)',
+    features:['주장 감지(NLP)','체크워시 분류','정치 연설 분석','공개 API'],
+    weaknesses:['2020년 이후 비활성','배치 처리만 가능(실시간 없음)','상업화 미진행','영어 정치 발화에 편향'],
+    tech:'SVM + 신경망 NLP (LLM 미사용)',
+    score:{ realtime:0, factcheck:4, hiring:0, privacy:3 },
+  },
+  {
+    id:'fathom', emoji:'💠', name:'Fathom', tag:'AI 회의 녹화', badge:'badge-red',
+    target:'개인·소규모팀', pricing:'$0–$20/월', founded:'2020', funding:'$30M → Superhuman 인수(2026.09)',
+    features:['무제한 무료 녹화','봇 없는 녹화 옵션','Ask Fathom Q&A','CRM 자동 동기화','클립 공유'],
+    weaknesses:['팩트체크 없음','Superhuman 인수 후 로드맵 불확실','요약 뉘앙스 부족','모바일 약함'],
+    tech:'표준 ASR + LLM 요약, 봇 없는 캡처',
+    score:{ realtime:3, factcheck:0, hiring:0, privacy:3 },
+  },
+  {
+    id:'avoma', emoji:'🌀', name:'Avoma', tag:'Gong 대안 (중소기업)', badge:'badge-green',
+    target:'B2B 세일즈·CS팀 중소기업', pricing:'Custom ($80+/user/mo)', founded:'2017', funding:'$15M',
+    features:['75개 언어 실시간 전사','MEDDIC/BANT 스코어링','딜 위험 알림','AI 코칭 스코어카드','스마트 스케줄링'],
+    weaknesses:['팩트체크 없음','HR 채용 특화 없음','EU 데이터 거주지 문제','셋업 복잡도 높음'],
+    tech:'멀티 모델 LLM + MEDDIC 로직 내재',
+    score:{ realtime:3, factcheck:1, hiring:1, privacy:2 },
+  },
+];
+
+const features = [
+  '실시간 STT 전사','화자 분리','채용 면접 특화','이력서 RAG 대조','실시간 웹 팩트체크',
+  '주장 감지 트리거','신뢰도 스코어링','추천 질문 생성','PII 마스킹','감사 로그','동의 플래그'
+];
+
+// Feature support matrix: ✅ ⚠️ ❌
+const matrixData = {
+  // realtime, speaker, hiring, resume, webfact, trigger, score, question, pii, audit, consent
+  otter:      ['✅','✅','❌','❌','❌','❌','❌','❌','⚠️','❌','⚠️'],
+  fireflies:  ['✅','✅','⚠️','❌','⚠️','❌','❌','❌','⚠️','❌','⚠️'],
+  gong:       ['⚠️','✅','❌','❌','❌','⚠️','✅','⚠️','⚠️','✅','⚠️'],
+  chorus:     ['⚠️','✅','❌','❌','❌','⚠️','⚠️','❌','⚠️','⚠️','⚠️'],
+  hirevue:    ['⚠️','✅','✅','❌','❌','❌','⚠️','❌','⚠️','✅','✅'],
+  metaview:   ['✅','✅','✅','⚠️','❌','❌','⚠️','❌','⚠️','⚠️','✅'],
+  grain:      ['✅','⚠️','❌','❌','❌','❌','❌','❌','❌','❌','⚠️'],
+  claimbuster:['❌','❌','❌','❌','✅','✅','✅','❌','❌','❌','❌'],
+  fathom:     ['✅','✅','❌','❌','❌','❌','❌','❌','❌','❌','⚠️'],
+  avoma:      ['✅','✅','⚠️','❌','❌','⚠️','✅','⚠️','⚠️','⚠️','⚠️'],
+  ours:       ['✅','✅','✅','✅','✅','✅','✅','✅','✅','✅','✅'],
+};
+
+const positionData = [
+  // x: 0-100 realtime, y: 0-100 factcheck depth (high y = top of chart → inverted in CSS)
+  { id:'otter',       emoji:'🎙', name:'Otter', x:72, y:8  },
+  { id:'fireflies',   emoji:'🔥', name:'Fireflies', x:65, y:18 },
+  { id:'gong',        emoji:'📈', name:'Gong', x:35, y:30 },
+  { id:'chorus',      emoji:'🎯', name:'Chorus', x:25, y:22 },
+  { id:'hirevue',     emoji:'🎬', name:'HireVue', x:42, y:10 },
+  { id:'metaview',    emoji:'🧠', name:'Metaview', x:60, y:12 },
+  { id:'grain',       emoji:'🌾', name:'Grain', x:70, y:8  },
+  { id:'claimbuster', emoji:'🔍', name:'ClaimBuster', x:15, y:78 },
+  { id:'fathom',      emoji:'💠', name:'Fathom', x:68, y:5  },
+  { id:'avoma',       emoji:'🌀', name:'Avoma', x:58, y:18 },
+  { id:'ours',        emoji:'🎯', name:'우리 제품', x:88, y:88, isOurs:true },
+];
+
+const gaps = [
+  { icon:'⚡', title:'실시간 팩트체킹 (모든 상업 툴 미보유)', desc:'조사된 10개 경쟁사 중 실시간 팩트 검증 기능을 갖춘 상업 제품 없음. ClaimBuster(학술)가 유일 근접 — 현재 비활성.' },
+  { icon:'📄', title:'이력서 ↔ 발언 실시간 대조', desc:'RAG 기반 이력서 벡터 검색으로 발언과 서류 불일치를 즉시 포착하는 기능 — 어떤 경쟁사도 없음.' },
+  { icon:'💬', title:'면접관 보조 실시간 질문 추천', desc:'HireVue·Metaview는 지원자 평가 AI. 면접관 측 실시간 반박·검증 질문 추천 기능 없음.' },
+  { icon:'💰', title:'SMB/중견 기업 접근 가능한 가격대', desc:'Gong($1,300+/user/year), HireVue($35K+/년)는 엔터프라이즈 전용. 중소 IT 기업용 실시간 인터뷰 AI 공백.' },
+  { icon:'🌏', title:'한국·APAC 시장 공백', desc:'기존 툴 모두 영어권 중심. 한국어 STT + 한국 IT 기업 채용 특화 솔루션 전무.' },
+];
+
+const differentiators = [
+  { icon:'🔬', title:'유일한 실시간 + 팩트체크 결합', desc:'시장에 없는 조합. 직접 경쟁사 0개.' },
+  { icon:'📋', title:'채용 버티컬 특화 (Interviewer-Side)', desc:'면접관 보조에 집중. HireVue 등 지원자 AI와 차별화.' },
+  { icon:'🛡', title:'선제적 거버넌스 내장', desc:'Otter.ai 소송 사태 반면교사. 동의 플래그 + PII 마스킹 + 감사 로그를 핵심으로 설계.' },
+  { icon:'⚡', title:'3~5초 저지연 파이프라인', desc:'병렬 Tool Calling (RAG + Web) 으로 End-to-End 5초 SLA 목표.' },
+];
+
+const risks = [
+  { icon:'⚖️', title:'법적 리스크 (녹음 동의)', desc:'대응: 세션 시작 시 명시적 동의 플래그, 지원자 서면 동의 내장' },
+  { icon:'💸', title:'OpenAI/Tavily API 비용', desc:'대응: 수치·스펙·단정 주장만 선별 트리거 → LLM 호출 최소화' },
+  { icon:'🔢', title:'STT 기술 정확도', desc:'대응: Whisper Large v3 + 도메인 핫워드 부스팅 (기술 용어 사전)' },
+  { icon:'🏢', title:'대기업 진입 리스크', desc:'대응: 채용 도메인 데이터 + 이력서 RAG 파이프라인으로 네트워크 효과 구축' },
+];
+
+// ─── RENDER ───
+
+// Market bars
+const barsEl = document.getElementById('market-bars');
+const maxVal = Math.max(...marketData.map(d => d.val2030));
+marketData.forEach(d => {
+  const pct24 = (d.val2024 / maxVal * 100).toFixed(1);
+  const pct30 = (d.val2030 / maxVal * 100).toFixed(1);
+  barsEl.innerHTML += `
+    <div>
+      <div class="flex justify-between items-center mb-1.5">
+        <span class="text-xs font-semibold text-[var(--foreground)]">${d.label}</span>
+        <span class="text-xs text-[var(--muted-foreground)]">CAGR <strong style="color:${d.color}">${d.cagr}</strong></span>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="text-[10px] text-[var(--muted-foreground)] w-10 text-right flex-shrink-0">2024</span>
+        <div class="flex-1 rounded-full h-3 overflow-hidden" style="background:var(--border)">
+          <div class="h-full rounded-full bar-anim" style="--w:${pct24}%;width:${pct24}%;background:${d.color};opacity:.55"></div>
+        </div>
+        <span class="text-[10px] font-bold text-[var(--foreground)] w-12 flex-shrink-0">$${d.val2024}B</span>
+      </div>
+      <div class="flex items-center gap-3 mt-1">
+        <span class="text-[10px] text-[var(--muted-foreground)] w-10 text-right flex-shrink-0">2030+</span>
+        <div class="flex-1 rounded-full h-3 overflow-hidden" style="background:var(--border)">
+          <div class="h-full rounded-full bar-anim" style="--w:${pct30}%;width:${pct30}%;background:${d.color}"></div>
+        </div>
+        <span class="text-[10px] font-bold text-[var(--foreground)] w-12 flex-shrink-0">$${d.val2030}B</span>
+      </div>
+    </div>`;
+});
+
+// Funding
+const fundingEl = document.getElementById('funding-list');
+funding.forEach(f => {
+  fundingEl.innerHTML += `<div class="flex items-center gap-2 p-2 rounded-lg border border-[var(--border)]" style="background:var(--background)">
+    <div class="flex-1"><div class="text-[10px] font-semibold">${f.name}</div><div class="text-[9px] text-[var(--muted-foreground)]">${f.stage}</div></div>
+    <span class="badge ${f.badge}">${f.amount}</span>
+  </div>`;
+});
+
+// Competitor grid
+const grid = document.getElementById('comp-grid');
+competitors.forEach(c => {
+  grid.innerHTML += `<div class="comp-card rounded-xl border border-[var(--border)] p-3 text-center" style="background:var(--card)" onclick="showComp('${c.id}')">
+    <div class="text-2xl mb-1">${c.emoji}</div>
+    <div class="text-[10px] font-bold text-[var(--foreground)]">${c.name}</div>
+    <div class="text-[9px] text-[var(--muted-foreground)] mt-0.5">${c.tag}</div>
+    <span class="badge ${c.badge} mt-1 block">${c.target.split('·')[0]}</span>
+  </div>`;
+});
+
+function showComp(id) {
+  document.querySelectorAll('.comp-card').forEach(el => el.classList.remove('selected'));
+  document.querySelector(`[onclick="showComp('${id}')"]`).classList.add('selected');
+  const c = competitors.find(x => x.id === id);
+  const scoreBar = (val, max=5) => {
+    const pct = (val/max*100);
+    const color = val >= 4 ? '#22c55e' : val >= 2 ? '#f59e0b' : '#ef4444';
+    return `<div class="flex-1 rounded-full h-2 overflow-hidden" style="background:var(--border)"><div class="h-full rounded-full" style="width:${pct}%;background:${color}"></div></div>`;
+  };
+  document.getElementById('comp-detail').innerHTML = `
+    <div class="fade-up">
+      <div class="flex items-start gap-4 mb-5">
+        <span class="text-4xl">${c.emoji}</span>
+        <div class="flex-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h3 class="text-lg font-black">${c.name}</h3>
+            <span class="badge ${c.badge}">${c.tag}</span>
+          </div>
+          <div class="text-xs text-[var(--muted-foreground)] mt-0.5">설립 ${c.founded} · 투자 ${c.funding}</div>
+          <div class="text-xs text-[var(--muted-foreground)]">타깃: ${c.target} · 가격: ${c.pricing}</div>
+          <div class="text-[11px] text-[var(--muted-foreground)] mt-1">🔧 기술: ${c.tech}</div>
+        </div>
+        <!-- Score bars -->
+        <div class="w-52 flex-shrink-0">
+          <div class="text-[9px] font-semibold text-[var(--muted-foreground)] mb-2 uppercase">평가 점수</div>
+          ${[['실시간성',c.score.realtime],['팩트체크',c.score.factcheck],['채용특화',c.score.hiring],['개인정보보호',c.score.privacy]].map(([label,val]) =>
+            `<div class="flex items-center gap-2 mb-1.5">
+              <span class="text-[9px] text-[var(--muted-foreground)] w-20">${label}</span>
+              ${scoreBar(val)}
+              <span class="text-[9px] font-bold text-[var(--foreground)] w-4">${val}</span>
+            </div>`).join('')}
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <div class="text-[10px] font-semibold text-green-500 mb-2">✅ 주요 기능</div>
+          <ul class="flex flex-col gap-1">${c.features.map(f=>`<li class="text-[11px] text-[var(--foreground)] flex items-start gap-1.5"><span class="text-green-500 mt-0.5 flex-shrink-0">•</span>${f}</li>`).join('')}</ul>
+        </div>
+        <div>
+          <div class="text-[10px] font-semibold text-red-400 mb-2">⚠️ 약점 / 한계</div>
+          <ul class="flex flex-col gap-1">${c.weaknesses.map(w=>`<li class="text-[11px] text-[var(--foreground)] flex items-start gap-1.5"><span class="text-red-400 mt-0.5 flex-shrink-0">•</span>${w}</li>`).join('')}</ul>
+        </div>
+      </div>
+    </div>`;
+}
+
+// Feature Matrix
+const allComps = [...competitors.map(c=>({id:c.id,emoji:c.emoji,name:c.name})), {id:'ours',emoji:'🎯',name:'우리 제품'}];
+const tbl = document.getElementById('feature-matrix');
+let thead = '<thead><tr><th class="text-left p-3 text-[11px] font-bold text-[var(--muted-foreground)] border-b border-[var(--border)] sticky left-0" style="background:var(--card);min-width:160px">기능</th>';
+allComps.forEach(c => {
+  const isOurs = c.id === 'ours';
+  thead += `<th class="p-3 text-center text-[10px] font-bold border-b border-[var(--border)] ${isOurs?'text-[var(--primary)]':'text-[var(--muted-foreground)]'}" style="min-width:72px;${isOurs?'background:rgba(99,102,241,.05)':''}">${c.emoji}<br/>${c.name}</th>`;
+});
+thead += '</tr></thead>';
+let tbody = '<tbody>';
+features.forEach((feat, fi) => {
+  const isAlt = fi % 2 === 1;
+  tbody += `<tr style="${isAlt?'background:rgba(0,0,0,.03)':''}">
+    <td class="p-3 text-[11px] font-medium text-[var(--foreground)] border-b border-[var(--border)] sticky left-0" style="background:${isAlt?'rgba(0,0,0,.04)':'var(--card)'}">${feat}</td>`;
+  allComps.forEach(c => {
+    const val = matrixData[c.id]?.[fi] ?? '❌';
+    const isOurs = c.id === 'ours';
+    tbody += `<td class="matrix-cell p-3 border-b border-[var(--border)] text-base ${isOurs?'font-bold':''}""  style="${isOurs?'background:rgba(99,102,241,.04)':''}">${isOurs?`<span style="color:var(--primary)">${val}</span>`:val}</td>`;
+  });
+  tbody += '</tr>';
+});
+tbody += '</tbody>';
+tbl.innerHTML = thead + tbody;
+
+// Positioning map dots
+const dotContainer = document.getElementById('pos-dots');
+positionData.forEach(p => {
+  const el = document.createElement('div');
+  el.className = 'pos-dot';
+  el.style.left = p.x + '%';
+  el.style.top = (100 - p.y) + '%';
+  el.innerHTML = `
+    <div class="dot-inner" style="background:${p.isOurs?'var(--primary)':'var(--card)'};border:2px solid ${p.isOurs?'var(--primary)':'var(--border)'}">${p.emoji}</div>
+    <div class="pos-label" style="${p.isOurs?'color:var(--primary);font-size:10px;font-weight:800':''}">${p.name}</div>`;
+  dotContainer.appendChild(el);
+});
+
+// Gap list
+const gapEl = document.getElementById('gap-list');
+gaps.forEach(g => {
+  gapEl.innerHTML += `<div class="flex items-start gap-3 p-3 rounded-xl border border-[var(--border)]" style="background:var(--background)">
+    <span class="text-lg flex-shrink-0">${g.icon}</span>
+    <div><div class="text-xs font-semibold">${g.title}</div><div class="text-[11px] text-[var(--muted-foreground)] mt-0.5 leading-relaxed">${g.desc}</div></div>
+  </div>`;
+});
+
+// Differentiators
+const diffEl = document.getElementById('diff-list');
+differentiators.forEach(d => {
+  diffEl.innerHTML += `<div class="flex items-start gap-3 p-3 rounded-xl" style="background:rgba(34,197,94,.05);border:1px solid rgba(34,197,94,.2)">
+    <span class="text-base flex-shrink-0">${d.icon}</span>
+    <div><div class="text-xs font-semibold text-green-500">${d.title}</div><div class="text-[11px] text-[var(--muted-foreground)] mt-0.5">${d.desc}</div></div>
+  </div>`;
+});
+
+// Risks
+const riskEl = document.getElementById('risk-list');
+risks.forEach(r => {
+  riskEl.innerHTML += `<div class="flex items-start gap-3 p-3 rounded-xl border border-[var(--border)]" style="background:var(--background)">
+    <span class="text-base flex-shrink-0">${r.icon}</span>
+    <div><div class="text-xs font-semibold text-red-400">${r.title}</div><div class="text-[11px] text-[var(--muted-foreground)] mt-0.5">${r.desc}</div></div>
+  </div>`;
+});
+
+// Tab switching
+function showTab(id) {
+  document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => {
+    el.classList.remove('active');
+    el.classList.add('text-[var(--muted-foreground)]');
+  });
+  document.getElementById('tab-' + id).classList.add('active');
+  event.target.classList.add('active');
+  event.target.classList.remove('text-[var(--muted-foreground)]');
+}
+</script>
+</body>
+</html>

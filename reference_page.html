@@ -6,6 +6,20 @@
   <title>시장 분석 & 레퍼런스 — Interview Fact-Check Assistant</title>
   <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
   <style>
+    /* ── Dark mode CSS variables ── */
+    :root {
+      --background: #0f1117;
+      --foreground: #e2e8f0;
+      --card: #1a1f2e;
+      --card-foreground: #e2e8f0;
+      --border: #2d3748;
+      --primary: #6366f1;
+      --primary-foreground: #ffffff;
+      --muted-foreground: #718096;
+      --sidebar: #141824;
+      --accent: #1e2535;
+    }
+    body { background: var(--background); color: var(--foreground); }
     ::-webkit-scrollbar{width:6px;height:6px}
     ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
     .tab-btn{transition:all .18s;cursor:pointer;white-space:nowrap}
